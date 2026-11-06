@@ -95,6 +95,9 @@ class DisplayManager {
         
         resolutionsCache = Array(uniqueResolutions).sorted {
             if $0.width == $1.width {
+                if $0.height != $1.height {
+                    return $0.height < $1.height
+                }
                 return $0.refreshRate > $1.refreshRate
             }
             return $0.width < $1.width

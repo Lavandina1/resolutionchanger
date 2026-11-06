@@ -4,6 +4,7 @@ class StatusMenuController: NSObject {
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
     var displayManager: DisplayManager
+    private let systemSettingsManager = SystemSettingsManager.shared
     
     override init() {
         self.displayManager = DisplayManager.shared
@@ -11,6 +12,7 @@ class StatusMenuController: NSObject {
         self.setupStatusItem()
     }
     
+    /// Creates the status bar item and attaches its menu.
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.isVisible = true
@@ -31,13 +33,14 @@ class StatusMenuController: NSObject {
         updateMenu()
     }
     
+    /// Rebuilds the menu from the current display modes.
     private func updateMenu() {
         menu.removeAllItems()
         
         let currentResolution = displayManager.getCurrentResolution()
         let availableResolutions = displayManager.getAvailableResolutions()
         
-        // Group the linear list into unique aspect boundaries [Width x Height: [RefreshRates]]
+        // Group resolutions by size and collect their refresh rates.
         var groupedResolutions: [(width: Int, height: Int, rates: [Double])] = []
         
         for res in availableResolutions {
@@ -50,11 +53,11 @@ class StatusMenuController: NSObject {
             }
         }
         
-        // Populate menu items
+        // Add one menu item per resolution group.
         for group in groupedResolutions {
             let baseTitle = "\(group.width) × \(group.height)"
             
-            // Primary Parent Menu Item
+            // Parent item for the resolution.
             let parentItem = NSMenuItem(
                 title: baseTitle,
                 action: #selector(resolutionSelected(_:)),
@@ -62,14 +65,14 @@ class StatusMenuController: NSObject {
             )
             parentItem.target = self
             
-            // Sort side options from highest performance frequency down to energy saver boundaries
+            // Show refresh rates from highest to lowest.
             let sortedRates = group.rates.sorted(by: >)
             
-            // FIXED: Explicitly pick the target refresh rate from available options
+            // Prefer the current refresh rate when it exists.
             let fallbackHz = sortedRates.first ?? 60.0
             var targetHz = fallbackHz
             
-            // If this group matches the current resolution, try to use the current refresh rate
+            // Keep the current rate for the active resolution.
             if let current = currentResolution, current.width == group.width && current.height == group.height {
                 if sortedRates.contains(current.refreshRate) {
                     targetHz = current.refreshRate
@@ -79,7 +82,7 @@ class StatusMenuController: NSObject {
             let defaultResolutionObject = DisplayResolution(width: group.width, height: group.height, refreshRate: targetHz)
             parentItem.representedObject = defaultResolutionObject
             
-            // CONSTRUCT SIDE MENU (SUBMENU) FOR REFRESH RATES
+            // Build the submenu for refresh rates.
             let subMenu = NSMenu()
             
             let headerItem = NSMenuItem(title: "Set Refresh Rate", action: nil, keyEquivalent: "")
@@ -96,7 +99,7 @@ class StatusMenuController: NSObject {
                 rateItem.representedObject = DisplayResolution(width: group.width, height: group.height, refreshRate: rate)
                 rateItem.target = self
                 
-                // If it is the current active resolution and refresh rate, mark checkmarks on both parent and side elements
+                // Mark the active resolution and refresh rate.
                 if let current = currentResolution,
                    current.width == group.width &&
                    current.height == group.height &&
@@ -104,7 +107,7 @@ class StatusMenuController: NSObject {
                     rateItem.state = .on
                     parentItem.state = .on
                     
-                    // Keep the parent item synchronized with the exact active checked refresh rate object
+                    // Mirror the exact checked refresh-rate object.
                     parentItem.representedObject = rateItem.representedObject
                 }
                 
@@ -116,6 +119,25 @@ class StatusMenuController: NSObject {
         }
         
         menu.addItem(NSMenuItem.separator())
+
+        let menuBarItem = NSMenuItem(
+            title: "Menu Bar Behavior...",
+            action: #selector(openMenuBarSettings(_:)),
+            keyEquivalent: ""
+        )
+        menuBarItem.target = self
+        menu.addItem(menuBarItem)
+
+        let dockItem = NSMenuItem(
+            title: "Automatically Hide Dock",
+            action: #selector(dockVisibilityToggled(_:)),
+            keyEquivalent: ""
+        )
+        dockItem.target = self
+        dockItem.state = systemSettingsManager.dockAutomaticallyHides ? .on : .off
+        menu.addItem(dockItem)
+
+        menu.addItem(NSMenuItem.separator())
         
         let quitItem = NSMenuItem(
             title: "Quit Resolution Changer",
@@ -126,14 +148,15 @@ class StatusMenuController: NSObject {
         menu.addItem(quitItem)
     }
     
+    /// Applies the chosen resolution and refresh rate.
     @objc private func resolutionSelected(_ sender: NSMenuItem) {
         var targetResolution = sender.representedObject as? DisplayResolution
         
-        // Inspect the submenu context
+        // Resolve the exact selection from the submenu when present.
         if let submenu = sender.submenu {
             var foundCheckedItem = false
             
-            // Step 1: Look for an item that is already checked
+            // Use the checked item if one exists.
             for item in submenu.items {
                 if item.state == .on, let childRes = item.representedObject as? DisplayResolution {
                     targetResolution = childRes
@@ -142,13 +165,10 @@ class StatusMenuController: NSObject {
                 }
             }
             
-            // Step 2: FIX FOR HIGHEST PIXEL RESOLUTION JUMP BUG
-            // If no item is checked (because you clicked a completely new resolution),
-            // do not guess using a loose fallback. Explicitly grab the resolution object
-            // from the very first valid option inside the submenu (which is your highest sorted Hz).
+            // Otherwise, use the first valid submenu item.
             if !foundCheckedItem {
                 for item in submenu.items {
-                    // Skip the descriptive header and separator rows
+                    // Skip the header and separator.
                     if item.isEnabled, let childRes = item.representedObject as? DisplayResolution {
                         targetResolution = childRes
                         break
@@ -163,13 +183,24 @@ class StatusMenuController: NSObject {
         }
     }
 
+    @objc private func openMenuBarSettings(_ sender: NSMenuItem) {
+        systemSettingsManager.openMenuBarSettings()
+    }
+
+    @objc private func dockVisibilityToggled(_ sender: NSMenuItem) {
+        _ = systemSettingsManager.setDockAutomaticallyHides(!systemSettingsManager.dockAutomaticallyHides)
+        updateMenu()
+    }
+
     
+    /// Quits the app.
     @objc private func quitApp(_ sender: NSMenuItem) {
         NSApplication.shared.terminate(nil)
     }
 }
 
 extension StatusMenuController: NSMenuDelegate {
+    /// Refreshes the menu just before it opens.
     func menuWillOpen(_ menu: NSMenu) {
         updateMenu()
     }
