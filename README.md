@@ -30,4 +30,4 @@ The **Menu Bar Behavior...** menu item opens the relevant macOS Control Center s
 
 ## License
 
-This project is distributed under the [MIT License](LICENSE).
+This project is distributed under the [GNU General Public License v3.0](LICENSE).
