@@ -1,42 +1,9 @@
 import Cocoa
 
-enum MenuBarVisibility: String, CaseIterable {
-    case always = "Always"
-    case desktop = "Only on Desktop"
-    case fullScreen = "Only in Full Screen"
-    case never = "Never"
-}
-
 final class SystemSettingsManager {
     static let shared = SystemSettingsManager()
 
-    private let controlCenterDomain = "com.apple.controlcenter"
-    private let menuBarOptionKey = "AutoHideMenuBarOption"
-    private let menuBarHiddenKey = "_HIHideMenuBar"
-    private let menuBarVisibleInFullScreenKey = "AppleMenuBarVisibleInFullscreen"
-
     private init() {}
-
-    var menuBarVisibility: MenuBarVisibility {
-        if let option = UserDefaults(suiteName: controlCenterDomain)?.object(forKey: menuBarOptionKey) as? NSNumber,
-           let visibility = MenuBarVisibility(controlCenterOption: option.intValue) {
-            return visibility
-        }
-
-        let hidesOnDesktop = UserDefaults.standard.bool(forKey: menuBarHiddenKey)
-        let visibleInFullScreen = UserDefaults.standard.bool(forKey: menuBarVisibleInFullScreenKey)
-
-        switch (hidesOnDesktop, visibleInFullScreen) {
-        case (true, false):
-            return .always
-        case (true, true):
-            return .desktop
-        case (false, false):
-            return .fullScreen
-        case (false, true):
-            return .never
-        }
-    }
 
     @discardableResult
     func openMenuBarSettings() -> Bool {
@@ -85,24 +52,6 @@ final class SystemSettingsManager {
             try process.run()
         } catch {
             NSLog("Resolution Changer: failed to restart %@", name)
-        }
-    }
-
-}
-
-private extension MenuBarVisibility {
-    init?(controlCenterOption: Int) {
-        switch controlCenterOption {
-        case 0:
-            self = .always
-        case 1:
-            self = .desktop
-        case 2:
-            self = .fullScreen
-        case 3:
-            self = .never
-        default:
-            return nil
         }
     }
 

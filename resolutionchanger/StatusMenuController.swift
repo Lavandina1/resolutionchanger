@@ -121,7 +121,7 @@ class StatusMenuController: NSObject {
         menu.addItem(NSMenuItem.separator())
 
         let menuBarItem = NSMenuItem(
-            title: "Menu Bar Behavior...",
+            title: "Change Menu Bar Behavior",
             action: #selector(openMenuBarSettings(_:)),
             keyEquivalent: ""
         )
