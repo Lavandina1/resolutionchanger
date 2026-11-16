@@ -18,9 +18,18 @@ class StatusMenuController: NSObject {
         statusItem.isVisible = true
         
         if let button = statusItem.button {
-            button.image = nil
-            button.font = NSFont.boldSystemFont(ofSize: NSFont.systemFontSize)
-            button.title = "RES"
+            let symbolConfiguration = NSImage.SymbolConfiguration(
+                pointSize: 18,
+                weight: .medium,
+                scale: .medium
+            ).applying(NSImage.SymbolConfiguration(hierarchicalColor: .labelColor))
+            button.image = NSImage(
+                systemSymbolName: "display",
+                accessibilityDescription: "Resolution Changer"
+            )?.withSymbolConfiguration(symbolConfiguration)
+            button.image?.isTemplate = false
+            button.title = ""
+            button.imagePosition = .imageOnly
             button.toolTip = "Resolution Changer"
         } else {
             NSLog("Resolution Changer: failed to create status item button")
